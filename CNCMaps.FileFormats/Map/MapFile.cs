@@ -1,12 +1,25 @@
 ﻿using System;
+using System.Text.Json;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using CNCMaps.FileFormats.Encodings;
 using CNCMaps.FileFormats.VirtualFileSystem;
 using NLog;
 
 namespace CNCMaps.FileFormats.Map {
+
+	public struct TileData {
+		public ushort Dx { get; set; }
+		public ushort Dy { get; set; }
+		public ushort Rx { get; set; }
+		public ushort Ry { get; set; }
+		public byte Z {  get; set; }
+		public int TileNum {  get; set; }
+		public byte SubTile {  get; set; }
+		public byte IceGrowth {  get; set; }
+	}
 
 	/// <summary>Map file.</summary>
 	public class MapFile : IniFile {
@@ -53,32 +66,33 @@ namespace CNCMaps.FileFormats.Map {
 			Logger.Debug("Reading tiles");
 			ReadTiles();
 
+			// DEBUG
 			Logger.Debug("Reading map overlay");
 			ReadOverlay();
 
-			Logger.Debug("Reading map terrain objects");
-			ReadTerrain();
+			//Logger.Debug("Reading map terrain objects");
+			//ReadTerrain();
 
-			Logger.Debug("Reading map smudge objects");
-			ReadSmudges();
+			//Logger.Debug("Reading map smudge objects");
+			//ReadSmudges();
 
-			Logger.Debug("Reading infantry on map");
-			ReadInfantry();
+			//Logger.Debug("Reading infantry on map");
+			//ReadInfantry();
 
-			Logger.Debug("Reading vehicles on map");
-			ReadUnits();
+			//Logger.Debug("Reading vehicles on map");
+			//ReadUnits();
 
-			Logger.Debug("Reading aircraft on map");
-			ReadAircraft();
+			//Logger.Debug("Reading aircraft on map");
+			//ReadAircraft();
 
-			Logger.Debug("Reading map structures");
-			ReadStructures();
+			//Logger.Debug("Reading map structures");
+			//ReadStructures();
 
-			Logger.Debug("Waypoints");
-			ReadWaypoints();
+			//Logger.Debug("Waypoints");
+			//ReadWaypoints();
 
-			Logger.Debug("Reading tunnels");
-			ReadTubes();
+			//Logger.Debug("Reading tunnels");
+			//ReadTubes();
 
 			Lighting = new Lighting(GetOrCreateSection("Lighting"));
 		}
@@ -139,6 +153,30 @@ namespace CNCMaps.FileFormats.Map {
 					}
 				}
 			}
+
+			// DEBUG
+			//List<TileData> tiles = new List<TileData>();
+			//for (ushort rx = 0; rx<512; rx++) {
+			//	for (ushort ry = 0; ry < 512; ry++) {
+			//		var tile = Tiles.GetTileR(rx, ry);
+			//		if (tile != null) {
+			//			tiles.Add(new TileData {
+			//				Dx=tile.Dx,
+			//				Dy=tile.Dy,
+			//				Rx=rx,
+			//				Ry=ry,
+			//				Z=tile.Z,
+			//				TileNum=tile.TileNum,
+			//				SubTile=tile.SubTile,
+			//				IceGrowth=tile.IceGrowth,
+			//			});
+			//			//Logger.Debug($"dx={tile.Dx} dy={tile.Dy} tilenum={tile.TileNum} subtile={tile.SubTile}");
+			//		}
+			//	}
+			//}
+			//var options = new JsonSerializerOptions { WriteIndented = true };
+			//string jsonString = JsonSerializer.Serialize(tiles, options);
+			//Logger.Debug(jsonString);
 
 			Logger.Debug("Read {0} tiles", numtiles);
 		}

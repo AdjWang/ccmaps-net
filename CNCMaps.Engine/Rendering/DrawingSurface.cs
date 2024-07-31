@@ -58,6 +58,45 @@ namespace CNCMaps.Engine.Rendering {
 			return _heightBuffer;
 		}
 
+		public void DrawString(string s, PointF pos, float emSize = 8.0f) {
+			Unlock();
+			using (Graphics g = Graphics.FromImage(Bitmap)) {
+				g.CompositingQuality = CompositingQuality.HighQuality;
+				g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+				g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+				g.SmoothingMode = SmoothingMode.HighQuality;
+				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+				StringFormat sf = new StringFormat();
+				sf.Alignment = StringAlignment.Center;
+				sf.LineAlignment = StringAlignment.Center;
+				var font = new System.Drawing.Font("Arial", emSize, FontStyle.Bold);
+				g.DrawString(s, font, Brushes.Black, pos, sf);
+			}
+			Lock();
+		}
+
+		private static Bitmap OverlayBitmaps(Bitmap bottomBitmap, Bitmap topBitmap) {
+			if (bottomBitmap == null || topBitmap == null) {
+				throw new System.ArgumentNullException("Bitmaps cannot be null");
+			}
+
+			if (bottomBitmap.Size != topBitmap.Size) {
+				throw new System.ArgumentException("Bitmaps must be of the same size");
+			}
+
+			Bitmap resultBitmap = new Bitmap(bottomBitmap.Width, bottomBitmap.Height, bottomBitmap.PixelFormat);
+
+			using (Graphics graphics = Graphics.FromImage(resultBitmap)) {
+				// Draw the bottom bitmap
+				graphics.DrawImage(bottomBitmap, 0, 0);
+
+				// Draw the top bitmap
+				graphics.DrawImage(topBitmap, 0, 0);
+			}
+
+			return resultBitmap;
+		}
+
 		public void SavePNG(string path, int compressionLevel, int left, int top, int width, int height) {
 			SavePNG(path, compressionLevel, new Rectangle(left, top, width, height));
 		}
@@ -72,9 +111,10 @@ namespace CNCMaps.Engine.Rendering {
 
 			if (saveRect.Location == Point.Empty && saveRect.Size == Bitmap.Size)
 				Bitmap.Save(path, encoder, encoderParams);
-			else
+			else {
 				using (var cutRect = Bitmap.Clone(saveRect, Bitmap.PixelFormat))
 					cutRect.Save(path, encoder, encoderParams);
+			}
 		}
 
 		public void SaveJPEG(string path, int compression, int left, int top, int width, int height) {
@@ -91,9 +131,10 @@ namespace CNCMaps.Engine.Rendering {
 
 			if (saveRect.Location == Point.Empty && saveRect.Size == Bitmap.Size)
 				Bitmap.Save(path, encoder, encoderParams);
-			else
+			else {
 				using (var cutRect = Bitmap.Clone(saveRect, Bitmap.PixelFormat))
 					cutRect.Save(path, encoder, encoderParams);
+			}
 		}
 
 		public void SaveThumb(Size dimensions, Rectangle cutout, string path, bool saveAsPng = false) {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using CNCMaps.Shared;
@@ -58,6 +59,8 @@ namespace CNCMaps.FileFormats.VirtualFileSystem {
 			if (archive == null) return null;
 
 			try {
+				// DEBUG
+				Logger.Info($"load {filename} from {archive.FileName}");
 				return archive.OpenFile(filename, format, m);
 			}
 			catch {

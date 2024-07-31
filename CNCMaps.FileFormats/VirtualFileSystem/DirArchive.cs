@@ -4,6 +4,7 @@ using System.IO;
 namespace CNCMaps.FileFormats.VirtualFileSystem {
 
 	public class DirArchive : IArchive {
+		public string FileName { get => Directory; }
 		public readonly string Directory;
 		private Dictionary<string, FileStream> _openedFiles = new Dictionary<string, FileStream>();
 

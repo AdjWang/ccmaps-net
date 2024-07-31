@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -10,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using CNCMaps.Engine.Map;
 using CNCMaps.Engine.Rendering;
+using CNCMaps.Engine.Drawables;
 using CNCMaps.FileFormats;
 using CNCMaps.FileFormats.Map;
 using CNCMaps.FileFormats.VirtualFileSystem;
@@ -19,9 +21,21 @@ using NLog.Config;
 using NLog.Targets;
 
 namespace CNCMaps.Engine {
-	public class RenderEngine {
+	public class StaticRenderer : IDisposable {
 		static Logger _logger = LogManager.GetCurrentClassLogger();
-		private RenderSettings _settings = new RenderSettings();
+
+		public StaticRenderer() {
+			InitSettings();
+			InitConfig();
+			InitVfs();
+			LoadIni();
+			LoadPalette();
+			LoadCollection();
+		}
+
+		public void Dispose() {
+			_vfs.Dispose();
+		}
 
 		public bool ConfigureFromArgs(string[] args) {
 			InitLoggerConfig();
@@ -39,245 +53,202 @@ namespace CNCMaps.Engine {
 		}
 
 		public EngineResult Execute() {
-			try {
-				_logger.Info("Initializing virtual filesystem");
-
-				var mapStream = File.Open(_settings.InputFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-				VirtualFile vmapFile;
-				var mixMap = new MixFile(mapStream, _settings.InputFile, 0, mapStream.Length, false, false);
-				if (mixMap.IsValid()) { // input max is a mix
-					var mapArchive = new MixFile(mapStream, Path.GetFileName(_settings.InputFile), true);
-					// grab the largest file in the archive
-					var mixEntry = mapArchive.Index.OrderByDescending(me => me.Value.Length).First();
-					vmapFile = mapArchive.OpenFile(mixEntry.Key);
-				}
-				else {
-					vmapFile = new VirtualFile(mapStream, Path.GetFileName(_settings.InputFile), true);
-				}
-				var mapFile = new MapFile(vmapFile, Path.GetFileName(_settings.InputFile));
-
-				ModConfig modConfig = null;
-				if (!string.IsNullOrEmpty(_settings.ModConfig)) {
-					if (File.Exists(_settings.ModConfig)) {
-						try {
-							using (FileStream f = File.OpenRead(_settings.ModConfig))
-								modConfig = ModConfig.Deserialize(f);
-
-						}
-						catch (IOException) {
-							_logger.Fatal("IOException while loading mod config");
-						}
-						catch (XmlException) {
-							_logger.Fatal("XmlException while loading mod config");
-						}
-						catch (SerializationException) {
-							_logger.Fatal("Serialization exception while loading mod config");
-						}
-					}
-					else {
-						_logger.Fatal("Invalid mod config file specified");
-					}
-				}
-
-				if (_settings.Engine == EngineType.AutoDetect) {
-					_settings.Engine = EngineDetector.DetectEngineType(mapFile);
-					_logger.Info("Engine autodetect result: {0}", _settings.Engine);
-				}
-
-				// Engine type is now definitive, load mod config
-				if (modConfig == null)
-					modConfig = ModConfig.GetDefaultConfig(_settings.Engine);
-
-				var map = new Map.Map {
-					IgnoreLighting = _settings.IgnoreLighting,
-					StartPosMarking = _settings.StartPositionMarking,
-					StartMarkerSize = _settings.MarkerStartSize,
-					MarkOreFields = _settings.MarkOreFields
-				};
-
-				using (var vfs = new VirtualFileSystem()) {
-					// first add the dirs, then load the extra mixes, then scan the dirs
-					foreach (string modDir in modConfig.Directories)
-						vfs.Add(modDir);
-
-					// add mixdir to VFS (if it's not included in the mod config)
-					if (!modConfig.Directories.Any()) {
-						string mixDir =
-							VirtualFileSystem.DetermineMixDir(_settings.MixFilesDirectory, _settings.Engine);
-						vfs.Add(mixDir);
-					}
-
-					foreach (string mixFile in modConfig.ExtraMixes)
-						vfs.Add(mixFile);
-
-					vfs.LoadMixes(_settings.Engine);
-
-					if (!map.Initialize(mapFile, modConfig, vfs)) {
-						_logger.Error("Could not successfully load this map. Try specifying the engine type manually.");
-						return EngineResult.LoadRulesFailed;
-					}
-
-					if (!map.LoadTheater()) {
-						_logger.Error("Could not successfully load all required components for this map. Aborting.");
-						return EngineResult.LoadTheaterFailed;
-					}
-
-					if (_settings.MarkStartPos && _settings.StartPositionMarking == StartPositionMarking.Tiled)
-						map.MarkTiledStartPositions();
-
-					if (_settings.MarkOreFields)
-						map.MarkOreAndGems();
-
-					if ((_settings.GeneratePreviewPack || _settings.FixupTiles || _settings.FixOverlays ||
-						 _settings.CompressTiles) && _settings.Backup) {
-						if (mapFile.BaseStream is MixFile)
-							_logger.Error("Cannot generate a map file backup into an archive (.mmx/.yro/.mix)!");
-						else {
-							try {
-								string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-								string fileInput = Path.Combine(Path.GetDirectoryName(_settings.InputFile),
-									Path.GetFileName(_settings.InputFile));
-								fileInput = fileInput.TrimEnd(Path.DirectorySeparatorChar,
-									Path.AltDirectorySeparatorChar);
-								string fileInputNoExtn = Path.Combine(Path.GetDirectoryName(_settings.InputFile),
-									Path.GetFileNameWithoutExtension(_settings.InputFile));
-								fileInputNoExtn = fileInputNoExtn.TrimEnd(Path.DirectorySeparatorChar,
-									Path.AltDirectorySeparatorChar);
-								string fileBackup = fileInputNoExtn + "_" + timestamp + ".bkp";
-								File.Copy(fileInput, fileBackup, true);
-								_logger.Info("Creating map backup: " + fileBackup);
-							}
-							catch (Exception) {
-								_logger.Error("Unable to generate a map file backup!");
-							}
-						}
-					}
-
-					// DEBUG
-					//if (_settings.FixupTiles)
-					//	map.FixupTileLayer();
-
-					map.Draw();
-
-					if (_settings.MarkIceGrowth)
-						map.MarkIceGrowth();
-
-					if (_settings.TunnelPaths)
-						map.PlotTunnels(_settings.TunnelPosition);
-
-					if (_settings.MarkStartPos && (_settings.StartPositionMarking == StartPositionMarking.Squared ||
-												   _settings.StartPositionMarking == StartPositionMarking.Circled ||
-												   _settings.StartPositionMarking == StartPositionMarking.Diamond ||
-												   _settings.StartPositionMarking == StartPositionMarking.Ellipsed ||
-												   _settings.StartPositionMarking == StartPositionMarking.Starred))
-						map.DrawStartPositions();
-
-					if (_settings.OutputFile == "")
-						_settings.OutputFile = DetermineMapName(mapFile, _settings.Engine, vfs);
-
-					if (_settings.OutputDir == "")
-						_settings.OutputDir = Path.GetDirectoryName(_settings.InputFile);
-
-					// DEBUG
-					//if (_settings.DiagnosticWindow) {
-						using (var form = new DebugDrawingSurfaceWindow(map.GetDrawingSurface(), map.GetTiles(),
-							map.GetTheater(), map)) {
-							form.RequestTileEvaluate += map.DebugDrawTile;
-							form.ShowDialog();
-						}
-					//}
-				} // VFS resources can now be released
-
-				// free up as much memory as possible before saving the large images
-				Rectangle saveRect = map.GetSizePixels(_settings.SizeMode);
-				DrawingSurface ds = map.GetDrawingSurface();
-				saveRect.Intersect(new Rectangle(0, 0, ds.Width, ds.Height));
-				// if we don't need this data anymore, we can try to save some memory
-				if (!_settings.GeneratePreviewPack) {
-					ds.FreeNonBitmap();
-					map.FreeUseless();
-					GC.Collect();
-				}
-
-				if (_settings.SaveJPEG)
-					ds.SaveJPEG(Path.Combine(_settings.OutputDir, _settings.OutputFile + ".jpg"),
-						_settings.JPEGCompression, saveRect);
-
-				if (_settings.SavePNG)
-					ds.SavePNG(Path.Combine(_settings.OutputDir, _settings.OutputFile + ".png"),
-						_settings.PNGQuality, saveRect);
-
-				Regex reThumb = new Regex(@"(\+|)?\((\d+),(\d+)\)");
-				var match = reThumb.Match(_settings.ThumbnailConfig);
-				if (match.Success) {
-					Size dimensions = new Size(
-							int.Parse(match.Groups[2].Captures[0].Value),
-							int.Parse(match.Groups[3].Captures[0].Value));
-					var cutRect = map.GetSizePixels(_settings.SizeMode);
-
-					if (match.Groups[1].Captures[0].Value == "+") {
-						// + means maintain aspect ratio
-
-						if (dimensions.Width > 0 && dimensions.Height > 0) {
-							float scaleHeight = (float)dimensions.Height / (float)cutRect.Height;
-							float scaleWidth = (float)dimensions.Width / (float)cutRect.Width;
-							float scale = Math.Min(scaleHeight, scaleWidth);
-							dimensions.Width = Math.Max((int)(cutRect.Width * scale), 1);
-							dimensions.Height = Math.Max((int)(cutRect.Height * scale), 1);
-						}
-						else {
-							double aspectRatio = cutRect.Width / (double)cutRect.Height;
-							if (dimensions.Width / (double)dimensions.Height > aspectRatio) {
-								dimensions.Height = (int)(dimensions.Width / aspectRatio);
-							}
-							else {
-								dimensions.Width = (int)(dimensions.Height * aspectRatio);
-							}
-						}
-					}
-
-					_logger.Info("Saving thumbnail with dimensions {0}x{1}", dimensions.Width, dimensions.Height);
-
-					if (!_settings.SavePNGThumbnails) {
-						ds.SaveThumb(dimensions, cutRect,
-							Path.Combine(_settings.OutputDir, "thumb_" + _settings.OutputFile + ".jpg"));
-					}
-					else {
-						ds.SaveThumb(dimensions, cutRect,
-							Path.Combine(_settings.OutputDir, "thumb_" + _settings.OutputFile + ".png"), true);
-					}
-				}
-
-				if (_settings.GeneratePreviewPack || _settings.FixupTiles || _settings.FixOverlays ||
-					_settings.CompressTiles) {
-					if (mapFile.BaseStream is MixFile)
-						_logger.Error(
-							"Cannot fix tile layer or inject thumbnail into an archive (.mmx/.yro/.mix)!");
-					else {
-						if (_settings.GeneratePreviewPack)
-							map.GeneratePreviewPack(_settings.PreviewMarkers, _settings.SizeMode, mapFile,
-								_settings.FixPreviewDimensions);
-
-						if (_settings.FixOverlays)
-							map.FixupOverlays(); // fixing is done earlier, it now creates overlay and its data pack
-
-						// Keep this last in tiles manipulation
-						if (_settings.CompressTiles)
-							map.CompressIsoMapPack5();
-
-						_logger.Info("Saving map to " + _settings.InputFile);
-						mapFile.Save(_settings.InputFile);
-					}
-				}
+			{
+				string objName = "LTNK";
+				//string owner, string name, short health, short direction, bool onBridge
+				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
 			}
-			catch (Exception exc) {
-				_logger.Error(string.Format("An unknown fatal exception occurred: {0}", exc), exc);
-#if DEBUG
-				throw;
-#endif
-				return EngineResult.Exception;
+			{
+				string objName = "BRUTE";
+				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
 			}
+			{
+				string objName = "SHAD";
+				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "LTNK";
+				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "GACNST";
+				StructureObject unit = new StructureObject("none", objName, 5000, 0x80);
+				unit.Upgrade1 = unit.Upgrade2 = unit.Upgrade3 = "None";
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
+			}
+
 			return EngineResult.RenderedOk;
+		}
+
+		private RenderSettings _settings = new RenderSettings();
+		private ModConfig _config;
+		private Game.PaletteCollection _palettes;
+		private Game.GameCollection _tileTypes;
+		private Game.ObjectCollection _animationTypes;
+		private Game.ObjectCollection _vehicleTypes;
+		private Game.ObjectCollection _infantryTypes;
+		private Game.ObjectCollection _buildingTypes;
+		private Game.ObjectCollection _aircraftTypes;
+		private Game.ObjectCollection _overlayTypes;
+		private Game.ObjectCollection _terrainTypes;
+		private VirtualFileSystem _vfs;
+		private IniFile _rules;
+		private IniFile _art;
+
+		private void RenderObject(GameObject obj, string name) {
+			// Should be large enough to contain a single unit
+			int width = 300;
+			int height = 300;
+			// As if the tile is at the center of screen
+			MapTile dummyTile = new MapTile((ushort)(width/2/(_config.TileWidth/2)),
+											(ushort)(height/2/(_config.TileHeight/2)), 0, 0, 0, 0, 0, 0, null);
+			obj.Tile = dummyTile;
+			obj.BottomTile = dummyTile;
+
+			// Find the drawable of the type
+			Drawable drawable = null;
+			foreach (Game.GameCollection collection in new Game.GameCollection[] {
+					_tileTypes,
+					_animationTypes,
+					_vehicleTypes,
+					_infantryTypes,
+					_buildingTypes,
+					_aircraftTypes,
+					_overlayTypes,
+					_terrainTypes,
+				}) {
+				drawable = collection.GetDrawable(name);
+				if (drawable != null) {
+					break;
+				}
+			}
+			if (drawable == null) {
+				throw new Exception($"Not found drawable type of obj={name}");
+			}
+			DrawingSurface ds = new DrawingSurface(width, height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+			obj.Drawable = drawable;
+			drawable.Draw(obj, ds);
+			// Cut the unit bound area
+			if (_settings.SavePNG) {
+				ds.SavePNG(Path.Combine(_settings.OutputDir, name + ".png"),
+						   _settings.PNGQuality, new Rectangle(0, 0, width, height));
+			}
+		}
+
+		private void InitSettings() {
+			if (_settings.Engine == EngineType.AutoDetect) {
+				_settings.Engine = EngineType.YurisRevenge;
+				_logger.Info("Engine used for static renderer: {0}", _settings.Engine);
+			}
+		}
+
+		private void InitConfig() {
+			// Engine type is now definitive, load mod config
+			_config = ModConfig.GetDefaultConfig(_settings.Engine);
+			// from ModConfigEditor.cs:btnLoadYRTheaters_Click()
+			_config.Theaters.Clear();
+			TheaterSettings theaterSettings = new TheaterSettings {
+				Type = TheaterType.Temperate,
+				TheaterIni = "temperatmd.ini",
+				Mixes = new List<string> {
+					"isotemp.mix",
+					"isotemmd.mix",
+					"temperat.mix",
+					"tem.mix",
+				},
+				Extension = ".tem",
+				NewTheaterChar = 'T',
+				IsoPaletteName = "isotem.pal",
+				UnitPaletteName = "unittem.pal",
+				OverlayPaletteName = "temperat.pal",
+			};
+			_config.Theaters.Add(theaterSettings);
+			_config.SetActiveTheater(TheaterType.Temperate);
+		}
+
+		private void InitVfs() {
+			_vfs = new VirtualFileSystem();
+			// first add the dirs, then load the extra mixes, then scan the dirs
+			foreach (string modDir in _config.Directories)
+				_vfs.Add(modDir);
+
+			// add mixdir to VFS (if it's not included in the mod config)
+			if (!_config.Directories.Any()) {
+				string mixDir =
+							VirtualFileSystem.DetermineMixDir(_settings.MixFilesDirectory, _settings.Engine);
+				_vfs.Add(mixDir);
+			}
+
+			foreach (string mixFile in _config.ExtraMixes)
+				_vfs.Add(mixFile);
+
+			_vfs.LoadMixes(_settings.Engine);
+
+			foreach (string mix in ModConfig.ActiveTheater.Mixes)
+				_vfs.Add(mix, CacheMethod.Cache); // we wish for these to be cached as they're gonna be hit often
+		}
+
+		private void LoadIni() {
+			if (_settings.Engine == EngineType.RedAlert2 || _settings.Engine == EngineType.TiberianSun) {
+				_rules = _vfs.Open<IniFile>("rules.ini");
+				_art = _vfs.Open<IniFile>("art.ini");
+			}
+			else if (_settings.Engine == EngineType.YurisRevenge) {
+				_rules = _vfs.Open<IniFile>("rulesmd.ini");
+				_art = _vfs.Open<IniFile>("artmd.ini");
+			}
+			else if (_settings.Engine == EngineType.Firestorm) {
+				_rules = _vfs.Open<IniFile>("rules.ini");
+				var fsRules = _vfs.Open<IniFile>("firestrm.ini");
+				_rules.MergeWith(fsRules);
+				_art = _vfs.Open<IniFile>("artmd.ini");
+			}
+			else {
+				throw new Exception($"unreachable engine type {_settings.Engine}");
+			}
+
+			_rules.LoadAresIncludes(_vfs);
+		}
+
+		private void LoadPalette() {
+			// from Theater.cs:Initialize()
+			// load palettes and additional mix files for this theater
+			_palettes = new Game.PaletteCollection(_vfs);
+			_palettes.IsoPalette = new Palette(_vfs.Open<PalFile>(ModConfig.ActiveTheater.IsoPaletteName));
+			_palettes.OvlPalette = new Palette(_vfs.Open<PalFile>(ModConfig.ActiveTheater.OverlayPaletteName));
+			_palettes.UnitPalette = new Palette(_vfs.Open<PalFile>(ModConfig.ActiveTheater.UnitPaletteName), ModConfig.ActiveTheater.UnitPaletteName, true);
+			_palettes.IsoPalette.Recalculate();
+			_palettes.OvlPalette.Recalculate();
+			_palettes.UnitPalette.Recalculate();
+			_palettes.AnimPalette = new Palette(_vfs.Open<PalFile>("anim.pal"));
+			_palettes.AnimPalette.Recalculate();
+		}
+
+		private void LoadCollection() {
+			_tileTypes = new Game.TileCollection(TheaterType.Temperate, _config, _vfs, _rules, _art, ModConfig.ActiveTheater);
+			_animationTypes = new Game.ObjectCollection(CollectionType.Animation, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("Animations"), _palettes);
+			_vehicleTypes = new Game.ObjectCollection(CollectionType.Vehicle, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("VehicleTypes"), _palettes);
+			_infantryTypes = new Game.ObjectCollection(CollectionType.Infantry, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("InfantryTypes"), _palettes);
+			_buildingTypes = new Game.ObjectCollection(CollectionType.Building, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("BuildingTypes"), _palettes);
+			_aircraftTypes = new Game.ObjectCollection(CollectionType.Aircraft, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("AircraftTypes"), _palettes);
+			_overlayTypes = new Game.ObjectCollection(CollectionType.Overlay, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("OverlayTypes"), _palettes);
+			_terrainTypes = new Game.ObjectCollection(CollectionType.Terrain, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("TerrainTypes"), _palettes);
 		}
 
 		private static void InitLoggerConfig() {
@@ -322,6 +293,7 @@ namespace CNCMaps.Engine {
 			}
 			_logger = LogManager.GetCurrentClassLogger();
 		}
+
 		private bool ValidateSettings() {
 			if (_settings.ShowHelp) {
 				ShowHelp();

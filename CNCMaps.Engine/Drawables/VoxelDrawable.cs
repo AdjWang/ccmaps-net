@@ -22,8 +22,9 @@ namespace CNCMaps.Engine.Drawables {
 		public override void Draw(GameObject obj, DrawingSurface ds, bool shadows = true) {
 			if (Vxl == null || Hva == Stream.Null) return;
 			DrawingSurface vxl_ds = VoxelRenderer.Render(Vxl, Hva, obj, Props);
-			if (vxl_ds != null)
+			if (vxl_ds != null) {
 				BlitVoxelToSurface(ds, vxl_ds, obj, Props, Props.Cloakable ? 50 : 0);
+			}
 		}
 
 		public override Rectangle GetBounds(GameObject obj) {

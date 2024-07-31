@@ -107,12 +107,12 @@ namespace CNCMaps.Engine.Rendering {
 			world = Matrix4.CreateScale(0.028f, 0.028f, 0.028f) * world;
 			GL.MultMatrix(ref world);
 
-			// DrawAxes();
+			//DrawAxes();
 
 			// determine tilt vectors
 			Matrix4 tilt = Matrix4.Identity;
 			int tiltPitch = 0, tiltYaw = 0;
-			if (obj.Tile.Drawable != null) {
+			if (obj.Tile != null && obj.Tile.Drawable != null) {
 				var img = (obj.Tile.Drawable as TileDrawable).GetTileImage(obj.Tile);
 				int ramp = img?.RampType ?? 0;
 				if (ramp == 0 || ramp >= 17) {

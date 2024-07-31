@@ -37,6 +37,21 @@ namespace CNCMaps.Engine.Rendering {
 		}
 
 		unsafe public void Draw(MapTile tile, TmpFile tmp, DrawingSurface ds) {
+			DoDraw(tile, tmp, ds);
+
+			// DEBUG
+			//// calculate tile index -> pixel index
+			//Point offset = new Point(tile.Dx * tmp.BlockWidth / 2, (tile.Dy - tile.Z) * tmp.BlockHeight / 2);
+			//// make touched tiles (used for determining image cutoff)
+			//Point center = offset + new Size(tmp.BlockWidth / 2, tmp.BlockHeight / 2);
+
+			//ds.DrawString($"{tile.Rx}:{tile.Ry}", center);
+			//ds.DrawString($"{tile.Dx}:{tile.Dy}", center);
+			//ds.DrawString($"{tile.TileNum}:{tile.SubTile}", center);
+			//ds.DrawString($"{tile.GetTileFile().FileName}", center, 8.0f);
+		}
+
+		unsafe private void DoDraw(MapTile tile, TmpFile tmp, DrawingSurface ds) {
 			tmp.Initialize();
 
 			if (tile.SubTile >= tmp.Images.Count) return;
@@ -82,6 +97,12 @@ namespace CNCMaps.Engine.Rendering {
 						*(w + 0) = p.Colors[paletteValue].B;
 						*(w + 1) = p.Colors[paletteValue].G;
 						*(w + 2) = p.Colors[paletteValue].R;
+						// DEBUG: grid line
+						if (c == 0 || c == (cx-1)) {
+							*(w + 0) = 255;
+							*(w + 1) = 0;
+							*(w + 2) = 255;
+						}
 						zBuffer[zIdx] = zBufVal;
 						heightBuffer[zIdx] = (short)(tile.Z * _config.TileHeight / 2);
 					}
@@ -102,6 +123,12 @@ namespace CNCMaps.Engine.Rendering {
 
 					short zBufVal = (short)((tile.Rx + tile.Ry) * tmp.BlockHeight / 2 - (img.ZData != null ? img.ZData[rIdx] : 0));
 					if (paletteValue != 0 && w_low <= w && w < w_high && zBufVal >= zBuffer[zIdx]) {
+						// DEBUG: grid line
+						if (c == 0 || c == (cx-1)) {
+							*(w + 0) = 255;
+							*(w + 1) = 0;
+							*(w + 2) = 255;
+						}
 						*(w + 0) = p.Colors[paletteValue].B;
 						*(w + 1) = p.Colors[paletteValue].G;
 						*(w + 2) = p.Colors[paletteValue].R;
@@ -126,21 +153,22 @@ namespace CNCMaps.Engine.Rendering {
 
 
 			// identify extra-data affected tiles for cutoff
-			var extraScreenBounds = Rectangle.FromLTRB(
-				Math.Max(0, offset.X), Math.Max(0, offset.Y),
-				Math.Min(offset.X + img.ExtraWidth, ds.Width), Math.Min(offset.Y + img.ExtraHeight, ds.Height));
+			// DEBUG
+			//var extraScreenBounds = Rectangle.FromLTRB(
+			//	Math.Max(0, offset.X), Math.Max(0, offset.Y),
+			//	Math.Min(offset.X + img.ExtraWidth, ds.Width), Math.Min(offset.Y + img.ExtraHeight, ds.Height));
 
-			for (int by = extraScreenBounds.Top; by < extraScreenBounds.Bottom; by += tmp.BlockHeight / 2) {
-				for (int bx = extraScreenBounds.Left; bx < extraScreenBounds.Right; bx += tmp.BlockWidth / 2) {
-					var gridTileNoZ = tile.Layer.GetTileScreen(new Point(bx, by), true, true);
-					if (gridTileNoZ != null) {
-						Logger.Trace("Tile at ({0},{1}) has extradata affecting ({2},{3})", tile.Dx, tile.Dy, gridTileNoZ.Dx,
-							gridTileNoZ.Dy);
-						tile.Layer.GridTouched[gridTileNoZ.Dx, gridTileNoZ.Dy / 2] |= TileLayer.TouchType.ByExtraData;
-						tile.Layer.GridTouchedBy[gridTileNoZ.Dx, gridTileNoZ.Dy / 2] = tile;
-					}
-				}
-			}
+			//for (int by = extraScreenBounds.Top; by < extraScreenBounds.Bottom; by += tmp.BlockHeight / 2) {
+			//	for (int bx = extraScreenBounds.Left; bx < extraScreenBounds.Right; bx += tmp.BlockWidth / 2) {
+			//		var gridTileNoZ = tile.Layer.GetTileScreen(new Point(bx, by), true, true);
+			//		if (gridTileNoZ != null) {
+			//			Logger.Trace("Tile at ({0},{1}) has extradata affecting ({2},{3})", tile.Dx, tile.Dy, gridTileNoZ.Dx,
+			//				gridTileNoZ.Dy);
+			//			tile.Layer.GridTouched[gridTileNoZ.Dx, gridTileNoZ.Dy / 2] |= TileLayer.TouchType.ByExtraData;
+			//			tile.Layer.GridTouchedBy[gridTileNoZ.Dx, gridTileNoZ.Dy / 2] = tile;
+			//		}
+			//	}
+			//}
 
 			// Extra graphics are just a square
 			for (y = 0; y < img.ExtraHeight; y++) {

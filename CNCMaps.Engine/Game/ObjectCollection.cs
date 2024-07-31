@@ -53,8 +53,10 @@ namespace CNCMaps.Engine.Game {
 				case CollectionType.Building:
 					drawable = new BuildingDrawable(_config, _vfs, rulesSection, artSection);
 					break;
-				case CollectionType.Infantry:
 				case CollectionType.Overlay:
+					drawable = new ShpDrawable(_config, _vfs, rulesSection, artSection);
+					break;
+				case CollectionType.Infantry:
 				case CollectionType.Smudge:
 					drawable = new ShpDrawable(_config, _vfs, rulesSection, artSection);
 					break;
