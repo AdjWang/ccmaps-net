@@ -8,3 +8,4 @@ CNCMaps_*.zip
 *.cache
 /desktop dump
 .vs
+packages/

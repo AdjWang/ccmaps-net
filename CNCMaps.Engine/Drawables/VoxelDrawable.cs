@@ -26,6 +26,11 @@ namespace CNCMaps.Engine.Drawables {
 				BlitVoxelToSurface(ds, vxl_ds, obj, Props, Props.Cloakable ? 50 : 0);
 		}
 
+		public override DrawingSurface DrawAll(GameObject obj, int column) {
+			// TODO
+			return null;
+		}
+
 		public override Rectangle GetBounds(GameObject obj) {
 			if (Vxl == null || Hva == null) return Rectangle.Empty;
 			var bounds = VxlRenderer.GetBounds(obj, Vxl, Hva, Props);

@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using CNCMaps.FileFormats.Encodings;
 using CNCMaps.FileFormats.VirtualFileSystem;
@@ -117,6 +119,16 @@ namespace CNCMaps.FileFormats {
 		public ShpImage GetImage(int imageIndex) {
 			if (imageIndex >= Images.Count) return new ShpImage();
 			return Images[imageIndex];
+		}
+
+		public Size GetMaxSize() {
+			short maxWidth = 0;
+			short maxHeight = 0;
+			foreach (ShpImage img in Images) {
+				maxWidth = Math.Max(maxWidth, img.Width);
+				maxHeight = Math.Max(maxHeight, img.Height);
+			}
+			return new Size(maxWidth, maxHeight);
 		}
 	}
 }

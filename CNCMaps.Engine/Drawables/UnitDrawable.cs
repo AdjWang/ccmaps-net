@@ -96,6 +96,11 @@ namespace CNCMaps.Engine.Drawables {
 			}
 		}
 
+		public override DrawingSurface DrawAll(GameObject obj, int column) {
+			// TODO
+			return null;
+		}
+
 		public override Rectangle GetBounds(GameObject obj) {
 			Rectangle bounds = Rectangle.Empty;
 			var parts = new List<Drawable>();

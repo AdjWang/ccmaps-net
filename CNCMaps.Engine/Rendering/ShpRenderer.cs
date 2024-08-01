@@ -137,6 +137,128 @@ namespace CNCMaps.Engine.Rendering {
 			}
 		}
 
+		public unsafe DrawingSurface DrawAll(int column, ShpFile shp, GameObject obj, Drawable dr,
+											 DrawProperties props, int transLucency = 0) {
+			shp.Initialize();
+
+			Size maxSize = shp.GetMaxSize();
+			int imageCount = shp.Images.Count;
+			if (column == 0) {
+				column = 1;
+			}
+			int row = (imageCount + column) / column;
+			DrawingSurface ds = new DrawingSurface(maxSize.Width * column, maxSize.Height * row,
+												   System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+
+			int currentFrame = 0;
+			for (int r = 0; r < row; r++) {
+				for (int c = 0; c < column; c++) {
+					if (currentFrame >= shp.Images.Count) {
+						return ds;
+					}
+
+					var img = shp.GetImage(currentFrame);
+					var imgData = img.GetImageData();
+					if (imgData == null || img.Width * img.Height != imgData.Length) {
+						currentFrame++;
+						continue;
+					}
+
+					Point offset = new Point(c * maxSize.Width, r * maxSize.Height);
+					Logger.Trace("Drawing SHP file {0} (Frame {1}) at ({2},{3})", shp.FileName, currentFrame, offset.X, offset.Y);
+
+					DrawFrameAt(offset, obj, shp, img, ds, dr, props, transLucency);
+					currentFrame++;
+				}
+			}
+			throw new Exception("unreachable");
+		}
+
+		private unsafe void DrawFrameAt(Point offset, GameObject obj, ShpFile shp, ShpFile.ShpImage img,
+										DrawingSurface ds, Drawable dr, DrawProperties props, int transLucency) {
+			int stride = ds.BitmapData.Stride;
+			var heightBuffer = ds.GetHeightBuffer();
+			var zBuffer = ds.GetZBuffer();
+
+			var w_low = (byte*)ds.BitmapData.Scan0;
+			byte* w_high = (byte*)ds.BitmapData.Scan0 + stride * ds.BitmapData.Height;
+			byte* w = (byte*)ds.BitmapData.Scan0 + offset.X * 3 + stride * offset.Y;
+
+			// clip to 25-50-75-100
+			transLucency = (transLucency / 25) * 25;
+			float a = transLucency / 100f;
+			float b = 1 - a;
+
+			int rIdx = 0; // image pixel index
+			int zIdx = offset.X + offset.Y * ds.Width; // z-buffer pixel index
+			short hBufVal = (short)(obj.Tile.Z * _config.TileHeight / 2);
+			short zOffset = (short)((obj.BottomTile.Rx + obj.BottomTile.Ry) * _config.TileHeight / 2 + props.ZAdjust);
+
+			if (!dr.Flat)
+				hBufVal += shp.Height;
+
+			Palette p = props.PaletteOverride ?? obj.Palette;
+			var imgData = img.GetImageData();
+			for (int y = 0; y < img.Height; y++) {
+				if (offset.Y + y < 0) {
+					w += stride;
+					rIdx += img.Width;
+					zIdx += ds.Width;
+					continue; // out of bounds
+				}
+
+				for (int x = 0; x < img.Width; x++) {
+					byte paletteValue = imgData[rIdx];
+
+					short zshapeOffset = obj is StructureObject ? (GetBuildingZ(x, y, shp, img, obj)) : (short)0;
+
+					if (paletteValue != 0) {
+						short zBufVal = zOffset;
+						if (dr.Flat)
+							zBufVal += (short)(y - img.Height);
+						else if (dr.IsBuildingPart) {
+							// nonflat building
+							zBufVal += zshapeOffset;
+						}
+						else
+							zBufVal += img.Height;
+
+						if (w_low <= w && w < w_high  /*&& zBufVal >= zBuffer[zIdx]*/) {
+							if (transLucency != 0) {
+								*(w + 0) = (byte)(a * *(w + 0) + b * p.Colors[paletteValue].B);
+								*(w + 1) = (byte)(a * *(w + 1) + b * p.Colors[paletteValue].G);
+								*(w + 2) = (byte)(a * *(w + 2) + b * p.Colors[paletteValue].R);
+							}
+							else {
+								*(w + 0) = p.Colors[paletteValue].B;
+								*(w + 1) = p.Colors[paletteValue].G;
+								*(w + 2) = p.Colors[paletteValue].R;
+
+								//var pal = Theater.Active.GetPalettes().UnitPalette.Colors;
+								//*(w + 0) = pal[zshapeOffset].R;
+								//*(w + 1) = pal[zshapeOffset].G;
+								//*(w + 2) = pal[zshapeOffset].B;
+							}
+							zBuffer[zIdx] = zBufVal;
+							heightBuffer[zIdx] = hBufVal;
+						}
+					}
+					//else {
+					//	*(w + 0) = 0;
+					//	*(w + 1) = 0;
+					//	*(w + 2) = 255;
+					//}
+
+					// Up to the next pixel
+					rIdx++;
+					zIdx++;
+					w += 3;
+				}
+				w += stride - 3 * img.Width;
+				zIdx += ds.Width - img.Width;
+			}
+		}
+
 		public unsafe void DrawShadow(GameObject obj, ShpFile shp, DrawProperties props, DrawingSurface ds) {
 			shp.Initialize();
 			int frameIndex = props.FrameDecider(obj);

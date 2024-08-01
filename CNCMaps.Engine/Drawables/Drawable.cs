@@ -210,6 +210,8 @@ namespace CNCMaps.Engine.Drawables {
 		}
 
 		public abstract void Draw(GameObject obj, DrawingSurface ds, bool shadow = true);
+		// For static renderer
+		public abstract DrawingSurface DrawAll(GameObject obj, int column);
 		public virtual void DrawShadow(GameObject obj, DrawingSurface ds) { }
 		public abstract Rectangle GetBounds(GameObject obj);
 

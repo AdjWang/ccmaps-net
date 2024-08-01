@@ -44,6 +44,11 @@ namespace CNCMaps.Engine.Drawables {
 			Props.Offset -= onBridgeOffset;
 		}
 
+		public override DrawingSurface DrawAll(GameObject obj, int column) {
+			if (Shp == null) return null;
+			return _renderer.DrawAll(column, Shp, obj, this, Props, Props.Cloakable ? 50 : 0);
+		}
+
 		public override void DrawShadow(GameObject obj, DrawingSurface ds) {
 			if (InvisibleInGame || Shp == null) return;
 			if (Props.HasShadow && !Props.Cloakable)

@@ -30,6 +30,11 @@ namespace CNCMaps.Engine.Drawables {
 			terrainShp.Draw(obj, ds, false);
 		}
 
+		public override DrawingSurface DrawAll(GameObject obj, int column) {
+			// TODO
+			return null;
+		}
+
 		public override Rectangle GetBounds(GameObject obj) {
 			if (InvisibleInGame || terrainShp?.Shp == null) return Rectangle.Empty;
 			var renderer = new ShpRenderer(_config, _vfs);

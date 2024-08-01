@@ -33,6 +33,11 @@ namespace CNCMaps.Engine.Drawables {
 			// todo: tile shadows (TS)
 		}
 
+		public override DrawingSurface DrawAll(GameObject obj, int column) {
+			// TODO
+			return null;
+		}
+
 		public override Rectangle GetBounds(GameObject obj) {
 			var tile = (MapTile)obj;
 			return TmpRenderer.GetBounds(tile, TsEntry.GetTmpFile(tile));
