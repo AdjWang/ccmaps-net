@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using CNCMaps.Engine.Game;
 using CNCMaps.Engine.Map;
@@ -44,9 +45,10 @@ namespace CNCMaps.Engine.Drawables {
 			Props.Offset -= onBridgeOffset;
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
 			if (Shp == null) return null;
-			return _renderer.DrawAll(column, Shp, obj, this, Props, Props.Cloakable ? 50 : 0);
+			// Ignore baseDs, generate by shp frame size
+			return _renderer.DrawAll(Shp, obj, this, Props, Props.Cloakable ? 50 : 0);
 		}
 
 		public override void DrawShadow(GameObject obj, DrawingSurface ds) {

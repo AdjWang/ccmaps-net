@@ -211,7 +211,8 @@ namespace CNCMaps.Engine.Drawables {
 
 		public abstract void Draw(GameObject obj, DrawingSurface ds, bool shadow = true);
 		// For static renderer
-		public abstract DrawingSurface DrawAll(GameObject obj, int column);
+		// BaseDs is used by voxel, output one image; ignored by shp, output multiple images.
+		public abstract List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs);
 		public virtual void DrawShadow(GameObject obj, DrawingSurface ds) { }
 		public abstract Rectangle GetBounds(GameObject obj);
 

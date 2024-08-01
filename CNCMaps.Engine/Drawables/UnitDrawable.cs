@@ -96,9 +96,9 @@ namespace CNCMaps.Engine.Drawables {
 			}
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
-			// TODO
-			return null;
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
+			Draw(obj, baseDs, false);
+			return new List<DrawingSurface>() { baseDs };
 		}
 
 		public override Rectangle GetBounds(GameObject obj) {

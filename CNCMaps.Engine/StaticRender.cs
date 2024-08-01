@@ -8,7 +8,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
 using CNCMaps.Engine.Map;
 using CNCMaps.Engine.Rendering;
 using CNCMaps.Engine.Drawables;
@@ -19,6 +18,7 @@ using CNCMaps.Shared;
 using NLog;
 using NLog.Config;
 using NLog.Targets;
+using BumpKit;
 
 namespace CNCMaps.Engine {
 	public class StaticRenderer : IDisposable {
@@ -54,14 +54,21 @@ namespace CNCMaps.Engine {
 
 		public EngineResult Execute() {
 			{
-				string objName = "LTNK";
-				//string owner, string name, short health, short direction, bool onBridge
+				string objName = "BRUTE";
 				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
 				unit.Palette = _palettes.UnitPalette;
 				RenderObject(unit, objName);
 			}
 			{
-				string objName = "BRUTE";
+				string objName = "GACNST";
+				StructureObject unit = new StructureObject("none", objName, 5000, 0x80);
+				unit.Upgrade1 = unit.Upgrade2 = unit.Upgrade3 = "None";
+				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "LTNK";
+				//string owner, string name, short health, short direction, bool onBridge
 				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
 				unit.Palette = _palettes.UnitPalette;
 				RenderObject(unit, objName);
@@ -73,16 +80,39 @@ namespace CNCMaps.Engine {
 				RenderObject(unit, objName);
 			}
 			{
-				string objName = "LTNK";
+				string objName = "AMCV";
 				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
 				unit.Palette = _palettes.UnitPalette;
 				RenderObject(unit, objName);
 			}
 			{
-				string objName = "GACNST";
-				StructureObject unit = new StructureObject("none", objName, 5000, 0x80);
-				unit.Upgrade1 = unit.Upgrade2 = unit.Upgrade3 = "None";
+				string objName = "PDPLANE";
+				UnitObject unit = new UnitObject("none", objName, 100, 0x80, false);
 				unit.Palette = _palettes.UnitPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "TREE03";
+				TerrainObject unit = new TerrainObject(objName);
+				unit.Palette = _palettes.IsoPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "CRATER07";
+				SmudgeObject unit = new SmudgeObject(objName);
+				unit.Palette = _palettes.IsoPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "TIB10";
+				OverlayObject unit = new OverlayObject(0, 0);
+				unit.Palette = _palettes.IsoPalette;
+				RenderObject(unit, objName);
+			}
+			{
+				string objName = "TWLT100";
+				AnimationObject unit = new AnimationObject(objName, null);
+				unit.Palette = _palettes.AnimPalette;
 				RenderObject(unit, objName);
 			}
 
@@ -100,6 +130,7 @@ namespace CNCMaps.Engine {
 		private Game.ObjectCollection _aircraftTypes;
 		private Game.ObjectCollection _overlayTypes;
 		private Game.ObjectCollection _terrainTypes;
+		private Game.ObjectCollection _smudgeTypes;
 		private VirtualFileSystem _vfs;
 		private IniFile _rules;
 		private IniFile _art;
@@ -112,7 +143,10 @@ namespace CNCMaps.Engine {
 			MapTile dummyTile = new MapTile((ushort)(width/2/(_config.TileWidth/2)),
 											(ushort)(height/2/(_config.TileHeight/2)), 0, 0, 0, 0, 0, 0, null);
 			obj.Tile = dummyTile;
-			obj.BottomTile = dummyTile;
+			try {
+				obj.BottomTile = dummyTile;
+			}
+			catch { }
 
 			// Find the drawable of the type
 			Drawable drawable = null;
@@ -125,6 +159,7 @@ namespace CNCMaps.Engine {
 					_aircraftTypes,
 					_overlayTypes,
 					_terrainTypes,
+					_smudgeTypes,
 				}) {
 				drawable = collection.GetDrawable(name);
 				if (drawable != null) {
@@ -134,18 +169,31 @@ namespace CNCMaps.Engine {
 			if (drawable == null) {
 				throw new Exception($"Not found drawable type of obj={name}");
 			}
-			//DrawingSurface ds = new DrawingSurface(width, height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-			//obj.Drawable = drawable;
-			//drawable.Draw(obj, ds);
 
 			obj.Drawable = drawable;
-			DrawingSurface ds = drawable.DrawAll(obj, 50);
+			// Would be override by shp but not vxl
+			DrawingSurface baseDs = new DrawingSurface(width, height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+			List<DrawingSurface> dss = drawable.DrawAll(obj, baseDs);
+			if (dss == null || (dss != null && dss.Count == 0)) {
+				_logger.Warn("Not found drawable resource: {0}", name);
+				return;
+			}
 			// Cut the unit bound area
-			if (ds != null && _settings.SavePNG) {
-				width = ds.Width;
-				height = ds.Height;
-				ds.SavePNG(Path.Combine(_settings.OutputDir, name + ".png"),
-						   _settings.PNGQuality, new Rectangle(0, 0, width, height));
+			if (dss.Count == 1) {
+				if (_settings.SavePNG) {
+					width = dss[0].Width;
+					height = dss[0].Height;
+					dss[0].SavePNG(Path.Combine(_settings.OutputDir, name + ".png"),
+								   _settings.PNGQuality, new Rectangle(0, 0, width, height));
+				}
+			}
+			else {	// dss.Count > 1
+				using (var gif = File.OpenWrite(Path.Combine(_settings.OutputDir, name + ".gif")))
+				using (var encoder = new GifEncoder(gif)) {
+					foreach (DrawingSurface ds in dss) {
+						encoder.AddFrame(ds.Bitmap);
+					}
+				}
 			}
 		}
 
@@ -254,6 +302,8 @@ namespace CNCMaps.Engine {
 				_config, _vfs, _rules, _art, _rules.GetSection("OverlayTypes"), _palettes);
 			_terrainTypes = new Game.ObjectCollection(CollectionType.Terrain, TheaterType.Temperate,
 				_config, _vfs, _rules, _art, _rules.GetSection("TerrainTypes"), _palettes);
+			_smudgeTypes = new Game.ObjectCollection(CollectionType.Smudge, TheaterType.Temperate,
+				_config, _vfs, _rules, _art, _rules.GetSection("SmudgeTypes"), _palettes);
 		}
 
 		private static void InitLoggerConfig() {

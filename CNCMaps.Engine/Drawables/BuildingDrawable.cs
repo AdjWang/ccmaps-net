@@ -353,9 +353,71 @@ namespace CNCMaps.Engine.Drawables {
 			}
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
-			// TODO
-			return null;
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
+			if (InvisibleInGame)
+				return new List<DrawingSurface>();
+
+			bool shadows = true;
+			// RA2/YR building rubble
+			if (obj is StructureObject && (obj as StructureObject).Health == 0 && _config.Engine >= EngineType.RedAlert2 && _baseShp.Shp != null) {
+				ShpDrawable rubble = (ShpDrawable)_baseShp.Clone();
+				rubble.Props = _baseShp.Props.Clone();
+				rubble.Shp.Initialize();
+				if (rubble.Shp.NumImages >= 8) {
+					rubble.Props.PaletteOverride = OwnerCollection.Palettes.IsoPalette;
+					rubble.Props.FrameDecider = FrameDeciders.BuildingRubbleFrameDecider(rubble.Shp.NumImages);
+					if (shadows)
+						rubble.DrawShadow(obj, baseDs);
+					rubble.Draw(obj, baseDs, false);
+					return new List<DrawingSurface>() { baseDs };
+				}
+			}
+
+			List<DrawingSurface> output = new List<DrawingSurface>();
+			// Draw healthy
+			DrawingSurface ds1 = new DrawingSurface(baseDs.Width, baseDs.Height, baseDs.Bitmap.PixelFormat);
+
+			var drawList = new List<Drawable>();
+			drawList.Add(_baseShp);
+			drawList.AddRange(SubDrawables); // bib
+			/* order:
+			ActiveAnims+Flat=yes
+			BibShape
+			ActiveAnims (+ZAdjust=0)
+			Building
+			ActiveAnims+ZAdjust=-32 */
+			drawList = drawList.OrderBy(d => d.Flat ? -1 : 1).ThenBy(d => d.Props.SortIndex).ToList();
+
+			foreach (var d in drawList) {
+				if (shadows)
+					d.DrawShadow(obj, ds1);
+				d.Draw(obj, ds1, false);
+			}
+			output.Add(ds1);
+
+			// Draw inhealthy
+			DrawingSurface ds2 = new DrawingSurface(baseDs.Width, baseDs.Height, baseDs.Bitmap.PixelFormat);
+			drawList = new List<Drawable>();
+			drawList.Add(_baseShp);
+			drawList.AddRange(SubDrawables); // bib
+
+			if (obj is StructureObject) {
+				drawList.AddRange(_animsDamaged);
+				drawList.AddRange(_fires);
+			}
+			else
+				drawList.AddRange(_anims);
+
+			drawList = drawList.OrderBy(d => d.Flat ? -1 : 1).ThenBy(d => d.Props.SortIndex).ToList();
+
+			foreach (var d in drawList) {
+				if (shadows)
+					d.DrawShadow(obj, ds2);
+				d.Draw(obj, ds2, false);
+			}
+			output.Add(ds2);
+
+			return output;
 		}
 
 		public override Rectangle GetBounds(GameObject obj) {

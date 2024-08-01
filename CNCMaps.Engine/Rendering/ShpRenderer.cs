@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Collections.Generic;
 using CNCMaps.Engine.Drawables;
 using CNCMaps.Engine.Game;
 using CNCMaps.Engine.Map;
@@ -137,41 +138,30 @@ namespace CNCMaps.Engine.Rendering {
 			}
 		}
 
-		public unsafe DrawingSurface DrawAll(int column, ShpFile shp, GameObject obj, Drawable dr,
+		public unsafe List<DrawingSurface> DrawAll(ShpFile shp, GameObject obj, Drawable dr,
 											 DrawProperties props, int transLucency = 0) {
 			shp.Initialize();
 
 			Size maxSize = shp.GetMaxSize();
 			int imageCount = shp.Images.Count;
-			if (column == 0) {
-				column = 1;
-			}
-			int row = (imageCount + column) / column;
-			DrawingSurface ds = new DrawingSurface(maxSize.Width * column, maxSize.Height * row,
-												   System.Drawing.Imaging.PixelFormat.Format24bppRgb);
 
-			int currentFrame = 0;
-			for (int r = 0; r < row; r++) {
-				for (int c = 0; c < column; c++) {
-					if (currentFrame >= shp.Images.Count) {
-						return ds;
-					}
-
-					var img = shp.GetImage(currentFrame);
-					var imgData = img.GetImageData();
-					if (imgData == null || img.Width * img.Height != imgData.Length) {
-						currentFrame++;
-						continue;
-					}
-
-					Point offset = new Point(c * maxSize.Width, r * maxSize.Height);
-					Logger.Trace("Drawing SHP file {0} (Frame {1}) at ({2},{3})", shp.FileName, currentFrame, offset.X, offset.Y);
-
-					DrawFrameAt(offset, obj, shp, img, ds, dr, props, transLucency);
-					currentFrame++;
+			List<DrawingSurface> dss = new List<DrawingSurface>();
+			for (int frame = 0; frame < imageCount; frame++) {
+				var img = shp.GetImage(frame);
+				var imgData = img.GetImageData();
+				if (imgData == null || img.Width * img.Height != imgData.Length) {
+					continue;
 				}
+
+				Point offset = new Point(0, 0);
+				Logger.Trace("Drawing SHP file {0} (Frame {1}) at ({2},{3})", shp.FileName, frame, offset.X, offset.Y);
+
+				DrawingSurface ds = new DrawingSurface(maxSize.Width, maxSize.Height,
+										System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+				DrawFrameAt(offset, obj, shp, img, ds, dr, props, transLucency);
+				dss.Add(ds);
 			}
-			throw new Exception("unreachable");
+			return dss;
 		}
 
 		private unsafe void DrawFrameAt(Point offset, GameObject obj, ShpFile shp, ShpFile.ShpImage img,

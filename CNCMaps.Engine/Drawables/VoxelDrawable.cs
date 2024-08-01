@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using CNCMaps.Engine.Game;
 using CNCMaps.Engine.Map;
@@ -26,9 +27,10 @@ namespace CNCMaps.Engine.Drawables {
 				BlitVoxelToSurface(ds, vxl_ds, obj, Props, Props.Cloakable ? 50 : 0);
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
-			// TODO
-			return null;
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
+			if (Vxl == null || Hva == null) return null;
+			Draw(obj, baseDs);
+			return new List<DrawingSurface>() { baseDs };
 		}
 
 		public override Rectangle GetBounds(GameObject obj) {

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using CNCMaps.Engine.Map;
@@ -30,9 +31,9 @@ namespace CNCMaps.Engine.Drawables {
 			terrainShp.Draw(obj, ds, false);
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
-			// TODO
-			return null;
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
+			Draw(obj, baseDs);
+			return new List<DrawingSurface>() { baseDs };
 		}
 
 		public override Rectangle GetBounds(GameObject obj) {

@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System.Collections.Generic;
+using System.Drawing;
 using CNCMaps.Engine.Game;
 using CNCMaps.Engine.Map;
 using CNCMaps.Engine.Rendering;
@@ -33,10 +34,11 @@ namespace CNCMaps.Engine.Drawables {
 			// todo: tile shadows (TS)
 		}
 
-		public override DrawingSurface DrawAll(GameObject obj, int column) {
-			// TODO
-			return null;
+		public override List<DrawingSurface> DrawAll(GameObject obj, DrawingSurface baseDs) {
+			Draw(obj, baseDs);
+			return new List<DrawingSurface>() { baseDs };
 		}
+
 
 		public override Rectangle GetBounds(GameObject obj) {
 			var tile = (MapTile)obj;
