@@ -34,6 +34,9 @@ namespace CNCMaps.FileFormats {
 		/// <summary>Voxel file used for 3d units.</summary>
 		Vxl,
 
+		/// <summary>Pcx file. https://en.wikipedia.org/wiki/PCX.</summary>
+		Pcx,
+
 		/// <summary>Unknown file type.</summary>
 		Ukn,
 

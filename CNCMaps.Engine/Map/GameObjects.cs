@@ -223,6 +223,12 @@ namespace CNCMaps.Engine.Map {
 			Name = name;
 		}
 	}
+	public class PcxObject : NamedObject {
+		public PcxObject(string name) {
+			Name = name;
+		}
+		public string FileName { get => $"{Name}.PCX"; }
+	}
 	public class UnitObject : NamedObject, OwnableObject {
 		public UnitObject(string owner, string name, short health, short direction, bool onBridge) {
 			Owner = owner;

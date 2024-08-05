@@ -28,6 +28,7 @@ namespace CNCMaps.FileFormats.VirtualFileSystem {
 			if (t == typeof(TmpFile)) return FileFormat.Tmp;
 			if (t == typeof(VplFile)) return FileFormat.Vpl;
 			if (t == typeof(VxlFile)) return FileFormat.Vxl;
+			if (t == typeof(PcxFile)) return FileFormat.Pcx;
 			return FileFormat.Ukn;
 		}
 

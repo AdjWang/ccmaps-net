@@ -26,6 +26,18 @@ namespace CNCMaps.Engine.Rendering {
 			_shadowBuffer = new bool[width * height];
 		}
 
+		public DrawingSurface(Bitmap image) {
+			Bitmap = image;
+			int width = image.Width;
+			int height = image.Height;
+			Width = width;
+			Height = height;
+			Lock(Bitmap.PixelFormat);
+			zBuffer = new short[width * height];
+			_heightBuffer = new int[width * height];
+			_shadowBuffer = new bool[width * height];
+		}
+
 		public void Lock(PixelFormat pixelFormat = PixelFormat.Format24bppRgb) {
 			if (BitmapData == null)
 				BitmapData = Bitmap.LockBits(new Rectangle(0, 0, Bitmap.Width, Bitmap.Height), ImageLockMode.ReadWrite, pixelFormat);

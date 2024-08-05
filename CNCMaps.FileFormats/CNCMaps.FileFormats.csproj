@@ -84,6 +84,7 @@
     <Compile Include="Encodings\Format40.cs" />
     <Compile Include="Encodings\Format5.cs" />
     <Compile Include="Encodings\Format80.cs" />
+    <Compile Include="Encodings\ImagePcx.cs" />
     <Compile Include="Encodings\MiniLZO.cs" />
     <Compile Include="FileFormat.cs" />
     <Compile Include="FormatHelper.cs" />
@@ -97,6 +98,7 @@
     <Compile Include="MissionsFile.cs" />
     <Compile Include="MixFile.cs" />
     <Compile Include="PalFile.cs" />
+    <Compile Include="PcxFile.cs" />
     <Compile Include="PktFile.cs" />
     <Compile Include="ShpFile.cs" />
     <Compile Include="TmpFile.cs" />

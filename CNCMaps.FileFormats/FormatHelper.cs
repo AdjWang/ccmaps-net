@@ -38,6 +38,8 @@ namespace CNCMaps.FileFormats {
 				return FileFormat.Vpl;
 			else if (extension == ".vxl")
 				return FileFormat.Vxl;
+			else if (extension == ".pcx")
+				return FileFormat.Pcx;
 			return FileFormat.Ukn;
 		}
 
@@ -71,6 +73,8 @@ namespace CNCMaps.FileFormats {
 					return new VplFile(baseStream, filename, offset, length, m != CacheMethod.NoCache);
 				case FileFormat.Vxl:
 					return new VxlFile(baseStream, filename, offset, length, m != CacheMethod.NoCache);
+				case FileFormat.Pcx:
+					return new PcxFile(baseStream, filename, offset, length, m != CacheMethod.NoCache);
 				case FileFormat.Ukn:
 				default:
 					return new VirtualFile(baseStream, filename, offset, length, m != CacheMethod.NoCache);

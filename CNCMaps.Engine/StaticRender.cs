@@ -115,6 +115,12 @@ namespace CNCMaps.Engine {
 				unit.Palette = _palettes.AnimPalette;
 				RenderObject(unit, objName);
 			}
+			{
+				string objName = "LOAD600A";
+				PcxObject unit = new PcxObject(objName);
+				unit.Palette = _palettes.AnimPalette;
+				RenderObject(unit, objName);
+			}
 
 			return EngineResult.RenderedOk;
 		}
@@ -134,6 +140,15 @@ namespace CNCMaps.Engine {
 		private VirtualFileSystem _vfs;
 		private IniFile _rules;
 		private IniFile _art;
+
+		private void RenderObject(PcxObject obj, string name) {
+			var pcxFile = _vfs.Open<PcxFile>(obj.FileName);
+			pcxFile.Initialize();
+			if (_settings.SavePNG) {
+				Bitmap image = pcxFile.Image;
+				image.Save(Path.Combine(_settings.OutputDir, name + ".png"));
+			}
+		}
 
 		private void RenderObject(GameObject obj, string name) {
 			// Should be large enough to contain a single unit
