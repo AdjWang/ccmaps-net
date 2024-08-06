@@ -24,7 +24,7 @@ namespace CNCMaps.Engine {
 	public class StaticRenderer : IDisposable {
 		static Logger _logger = LogManager.GetCurrentClassLogger();
 
-		public StaticRenderer() {
+		public void Init() {
 			InitSettings();
 			InitConfig();
 			InitVfs();
@@ -118,7 +118,6 @@ namespace CNCMaps.Engine {
 			{
 				string objName = "LOAD600A";
 				PcxObject unit = new PcxObject(objName);
-				unit.Palette = _palettes.AnimPalette;
 				RenderObject(unit, objName);
 			}
 
@@ -143,6 +142,9 @@ namespace CNCMaps.Engine {
 
 		private void RenderObject(PcxObject obj, string name) {
 			var pcxFile = _vfs.Open<PcxFile>(obj.FileName);
+			if (pcxFile == null) {
+				throw new FileNotFoundException($"Not found {obj.FileName}");
+			}
 			pcxFile.Initialize();
 			if (_settings.SavePNG) {
 				Bitmap image = pcxFile.Image;
@@ -245,6 +247,9 @@ namespace CNCMaps.Engine {
 
 		private void InitVfs() {
 			_vfs = new VirtualFileSystem();
+			if (_settings.InputDir != "") {
+				_vfs.Add(_settings.InputDir);
+			}
 			// first add the dirs, then load the extra mixes, then scan the dirs
 			foreach (string modDir in _config.Directories)
 				_vfs.Add(modDir);

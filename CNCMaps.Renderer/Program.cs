@@ -7,6 +7,7 @@ namespace CNCMaps {
 			//var engine = new RenderEngine();
 			var engine = new StaticRenderer();
 			if (engine.ConfigureFromArgs(args)) {
+				engine.Init();
 				var result = engine.Execute();
 				LogManager.Configuration = null; // required for mono release to flush possible targets
 				return (int)result;

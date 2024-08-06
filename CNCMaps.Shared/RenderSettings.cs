@@ -6,7 +6,10 @@ namespace CNCMaps.Shared {
 		OptionSet _options;
 		private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
+		// Not using by static renderer
 		public string InputFile { get; set; }
+
+		public string InputDir { get; set; }
 		public string OutputFile { get; set; }
 		public string OutputDir { get; set; }
 		public bool SavePNG { get; set; }
@@ -48,7 +51,7 @@ namespace CNCMaps.Shared {
 			MarkOreFields = false;
 			Engine = EngineType.AutoDetect;
 			StartPositionMarking = StartPositionMarking.None;
-			InputFile = "";
+			InputDir = "";
 			OutputDir = "";
 			OutputFile = "";
 			MixFilesDirectory = "";
@@ -79,7 +82,7 @@ namespace CNCMaps.Shared {
 		public OptionSet GetOptions() {
 			if (_options == null) _options = new OptionSet {
 				{"h|help", "Show this short help text", v => ShowHelp = true},
-				{"i|infile=", "Input file", v => InputFile = v},
+				{"i|indir=", "Input directory", v => InputDir = v},
 				{"o|outfile=", "Output file, without extension, read from map if not specified.", v => OutputFile = v},
 				{"d|outdir=", "Output directiory", v => OutputDir = v},
 				{"y|force-ra2", "Force using the Red Alert 2 engine for rendering", v => Engine = EngineType.RedAlert2},
